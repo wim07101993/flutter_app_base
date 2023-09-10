@@ -1,14 +1,13 @@
-import 'package:beaver_dependency_management/src/feature.dart';
+import 'package:beaver_dependency_management/src/feature/feature.dart';
 import 'package:get_it/get_it.dart';
 import 'package:logging/logging.dart';
 
 class FeatureManager {
   FeatureManager({
     required List<Feature> features,
-    required this.getIt,
-    this.logger,
   }) : _featureStatuses = {
-          for (final feature in features) feature: _FeatureStatus(),
+          for (final feature in features)
+            feature.runtimeType: _FeatureStatus(feature),
         } {
     assert(
       _featureStatuses.length == features.length,
@@ -16,11 +15,18 @@ class FeatureManager {
     );
   }
 
-  final GetIt getIt;
-  final Logger? logger;
-  final Map<Feature, _FeatureStatus> _featureStatuses;
+  final Map<Type, _FeatureStatus> _featureStatuses;
+  Logger? _logger;
 
-  Iterable<Feature> get features => _featureStatuses.keys;
+  Iterable<Feature> get features =>
+      _featureStatuses.values.map((status) => status.feature);
+
+  Logger? get logger {
+    return _logger ??
+        (!GetIt.I.isRegistered<Logger>()
+            ? null
+            : _logger = GetIt.I<Logger>(param1: 'feature manager'));
+  }
 
   void registerTypes() {
     _registerFeatures();
@@ -32,15 +38,15 @@ class FeatureManager {
   void _registerFeatures() {
     final features = this
         .features
-        .where((feature) => !getIt.isRegistered(instance: feature));
+        .where((feature) => !GetIt.I.isRegistered(instance: feature));
 
     for (final feature in features) {
-      if (!getIt.isRegistered(instance: feature)) {
+      if (!GetIt.I.isRegistered(instance: feature)) {
         continue;
       }
       logger?.finest('$feature: registering feature');
 
-      getIt.registerSingleton(
+      GetIt.I.registerSingleton(
         feature,
         dispose: (_) => feature.dispose(),
       );
@@ -50,7 +56,7 @@ class FeatureManager {
   }
 
   void _ensureFeatureTypesRegistered(Feature feature) {
-    final installStatus = _featureStatuses[feature];
+    final installStatus = _featureStatuses[feature.runtimeType];
     if (installStatus == null) {
       throw Exception('Feature $feature is not known...');
     }
@@ -60,8 +66,9 @@ class FeatureManager {
 
     logger?.finest('$feature: registering types of feature');
 
-    feature.registerTypes(getIt);
-    _featureStatuses[feature] = installStatus..hasRegisteredTypes = true;
+    feature.registerTypes();
+    _featureStatuses[feature.runtimeType] = installStatus
+      ..hasRegisteredTypes = true;
 
     logger?.finer('$feature: registered types of feature');
   }
@@ -73,17 +80,17 @@ class FeatureManager {
           .map(_ensureFeatureInstalled)
           .toList(growable: false);
 
+      await Future.wait(installFutures);
+
       if (installFutures.isEmpty) {
         throwCircularDependencyException();
         return;
       }
-
-      await Future.wait(installFutures);
     }
   }
 
   Future<void> _ensureFeatureInstalled(Feature feature) async {
-    final status = _featureStatuses[feature];
+    final status = _featureStatuses[feature.runtimeType];
     if (status == null) {
       throw Exception(
         'First register the types, then call install. The installation method '
@@ -104,29 +111,29 @@ class FeatureManager {
 
     logger?.finest('$feature: installing feature');
 
-    await feature.install(getIt);
-    _featureStatuses[feature] = status..isInstalled = true;
+    await feature.install();
+    _featureStatuses[feature.runtimeType] = status..isInstalled = true;
 
     logger?.fine('$feature: installed feature');
   }
 
   bool _canFeatureBeInstalled(Feature feature) {
     final status = _featureStatuses[feature.runtimeType];
-    return status != null &&
-        !status.isInstalled &&
-        feature.dependencies
-            .map((type) => _featureStatuses[type])
-            .every((status) {
-          if (status == null) {
-            throw Exception('Feature $feature is not known...');
-          }
-          return status.isInstalled;
-        });
+    return status == null ||
+        (!status.isInstalled &&
+            feature.dependencies
+                .map((type) => _featureStatuses[type])
+                .every((status) {
+              if (status == null) {
+                throw Exception('Feature $feature is not known...');
+              }
+              return status.isInstalled;
+            }));
   }
 
   T throwCircularDependencyException<T>() {
-    final leftOverFeatures = _featureStatuses.values
-        .where((status) => !status.isInstalled)
+    final leftOverFeatures = _featureStatuses.keys
+        .where((type) => _featureStatuses[type]?.isInstalled != true)
         .toList(growable: false);
     throw Exception(
       'Circular dependency between features detected. Left over features: '
@@ -136,6 +143,10 @@ class FeatureManager {
 }
 
 class _FeatureStatus {
+  _FeatureStatus(this.feature);
+
+  final Feature feature;
+
   bool isInstalled = false;
   bool hasRegisteredTypes = false;
 }
