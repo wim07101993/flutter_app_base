@@ -7,9 +7,13 @@ environment:
   sdk: '>=2.19.6 <3.0.0'
 
 dependencies:
+  ansicolor: ">=2.0.0 <3.0.0"
+  auto_route: ">=7.0.0 <8.0.0"
+  behaviour: ">=2.0.0 <3.0.0"
+  flutter:
+    sdk: flutter
+  flutter_fox_logging: ">=1.0.0 <2.0.0"
   get_it: ">7.0.0 <=8.0.0"
-  logging: ^1.1.1
 
 dev_dependencies:
   lint:
-  test: ^1.24.2
