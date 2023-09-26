@@ -1,12 +1,10 @@
 import 'package:ansicolor/ansicolor.dart';
-import 'package:beaver_dependency_management/src/feature/feature.dart';
-import 'package:beaver_dependency_management/src/feature/feature_extensions.dart';
-import 'package:beaver_dependency_management/src/get_it_extensions.dart';
-import 'package:beaver_dependency_management/src/logging/get_it_behaviour_monitor.dart';
-import 'package:beaver_dependency_management/src/logging/logging_track.dart';
 import 'package:behaviour/behaviour.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_fox_logging/flutter_fox_logging.dart';
+import 'package:flutter_app_base/src/feature/feature.dart';
+import 'package:flutter_app_base/src/get_it_extensions.dart';
+import 'package:flutter_app_base/src/logging/get_it_behaviour_monitor.dart';
+import 'package:flutter_app_base/src/logging/logging_track.dart';
 
 abstract class LoggingFeature<TBehaviourTrack extends BehaviourTrack>
     extends Feature {
@@ -18,7 +16,7 @@ abstract class LoggingFeature<TBehaviourTrack extends BehaviourTrack>
   @override
   @mustCallSuper
   void registerTypes() {
-    getIt.registerLazySingleton(() {
+    GetIt.I.registerLazySingleton(() {
       final prettyFormatter = PrettyFormatter();
       return PrintSink(
         LevelDependentFormatter(
@@ -29,17 +27,17 @@ abstract class LoggingFeature<TBehaviourTrack extends BehaviourTrack>
       );
     });
 
-    getIt.registerFactoryParam<Logger, String, dynamic>(
+    GetIt.I.registerFactoryParam<Logger, String, dynamic>(
       (loggerName, _) => _loggerFactory(loggerName),
     );
 
-    getIt.registerFactory<BehaviourMonitor>(
-      () => GetItBehaviourMonitor<TBehaviourTrack>(getIt: getIt),
+    GetIt.I.registerFactory<BehaviourMonitor>(
+      () => GetItBehaviourMonitor<TBehaviourTrack>(),
     );
-    getIt.registerFactoryParam<LoggingTrack, BehaviourMixin, dynamic>(
+    GetIt.I.registerFactoryParam<LoggingTrack, BehaviourMixin, dynamic>(
       (behaviour, _) => LoggingTrack(
         behaviour: behaviour,
-        logger: getIt.logger(behaviour.tag),
+        logger: GetIt.I.logger(behaviour.tag),
       ),
     );
   }
@@ -55,16 +53,16 @@ abstract class LoggingFeature<TBehaviourTrack extends BehaviourTrack>
 
   Logger _loggerFactory(String loggerName) {
     final instanceName = '$loggerName-logger';
-    if (getIt.isRegistered<Logger>(instanceName: instanceName)) {
-      return getIt.get<Logger>(instanceName: instanceName);
+    if (GetIt.I.isRegistered<Logger>(instanceName: instanceName)) {
+      return GetIt.I.get<Logger>(instanceName: instanceName);
     } else {
       final logger = Logger.detached(loggerName)..level = Level.ALL;
-      getIt.registerSingleton<Logger>(
+      GetIt.I.registerSingleton<Logger>(
         logger,
         instanceName: instanceName,
         dispose: (instance) => instance.clearListeners(),
       );
-      getIt<LogSink>().listenTo(logger.onRecord);
+      GetIt.I<LogSink>().listenTo(logger.onRecord);
       return logger;
     }
   }

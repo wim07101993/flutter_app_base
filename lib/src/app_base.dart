@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'dart:developer';
 
-import 'package:beaver_dependency_management/src/feature/feature.dart';
-import 'package:beaver_dependency_management/src/feature/feature_manager.dart';
-import 'package:beaver_dependency_management/src/get_it_extensions.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_fox_logging/flutter_fox_logging.dart';
-import 'package:get_it/get_it.dart';
+import 'package:flutter_app_base/src/feature/feature.dart';
+import 'package:flutter_app_base/src/feature/feature_manager.dart';
+import 'package:flutter_app_base/src/get_it_extensions.dart';
 
 Future<void> run<TRouter>({
   required List<Feature> features,
@@ -15,11 +13,10 @@ Future<void> run<TRouter>({
   ZoneSpecification? zoneSpecification,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
-  final featureManager = FeatureManager(features: features);
+  final featureManager = FeatureManager();
+  GetIt.I.registerSingleton(featureManager);
   return runZonedGuarded(
     () async {
-      featureManager.registerTypes();
-      await featureManager.install();
       runApp(Builder(builder: builder));
     },
     (error, stack) {
