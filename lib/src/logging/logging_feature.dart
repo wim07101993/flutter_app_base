@@ -6,27 +6,32 @@ import 'package:flutter_app_base/src/get_it_extensions.dart';
 import 'package:flutter_app_base/src/logging/get_it_behaviour_monitor.dart';
 import 'package:flutter_app_base/src/logging/logging_track.dart';
 
+const defaultLoggingFeature = _DefaultLoggingFeature();
+
+PrintSink get defaultPrintSink {
+  final prettyFormatter = PrettyFormatter();
+  return PrintSink(
+    LevelDependentFormatter(
+      defaultFormatter: SimpleFormatter(),
+      severe: prettyFormatter,
+      shout: prettyFormatter,
+    ),
+  );
+}
+
 abstract class LoggingFeature<TBehaviourTrack extends BehaviourTrack>
     extends Feature {
   const LoggingFeature();
 
-  void registerLogSink();
+  void registerLogSink() {
+    GetIt.I.registerLazySingleton<LogSink>(() => defaultPrintSink);
+  }
+
   void registerBehaviourTrack();
 
   @override
   @mustCallSuper
   void registerTypes() {
-    GetIt.I.registerLazySingleton(() {
-      final prettyFormatter = PrettyFormatter();
-      return PrintSink(
-        LevelDependentFormatter(
-          defaultFormatter: SimpleFormatter(),
-          severe: prettyFormatter,
-          shout: prettyFormatter,
-        ),
-      );
-    });
-
     GetIt.I.registerFactoryParam<Logger, String, dynamic>(
       (loggerName, _) => _loggerFactory(loggerName),
     );
@@ -34,15 +39,13 @@ abstract class LoggingFeature<TBehaviourTrack extends BehaviourTrack>
     GetIt.I.registerFactory<BehaviourMonitor>(
       () => GetItBehaviourMonitor<TBehaviourTrack>(),
     );
-    GetIt.I.registerFactoryParam<LoggingTrack, BehaviourMixin, dynamic>(
-      (behaviour, _) => LoggingTrack(
-        behaviour: behaviour,
-        logger: GetIt.I.logger(behaviour.tag),
-      ),
-    );
+
+    registerLogSink();
+    registerBehaviourTrack();
   }
 
   @override
+  @mustCallSuper
   Future<void> install() {
     hierarchicalLoggingEnabled = true;
     recordStackTraceAtLevel = Level.SEVERE;
@@ -65,5 +68,19 @@ abstract class LoggingFeature<TBehaviourTrack extends BehaviourTrack>
       GetIt.I<LogSink>().listenTo(logger.onRecord);
       return logger;
     }
+  }
+}
+
+class _DefaultLoggingFeature extends LoggingFeature<LoggingTrack> {
+  const _DefaultLoggingFeature();
+
+  @override
+  void registerBehaviourTrack() {
+    GetIt.I.registerFactoryParam<LoggingTrack, BehaviourMixin, dynamic>(
+      (behaviour, _) => LoggingTrack(
+        behaviour: behaviour,
+        logger: GetIt.I.logger(behaviour.tag),
+      ),
+    );
   }
 }

@@ -1,4 +1,5 @@
-import 'package:flutter_app_base/flutter_app_base.dart';
+import 'package:flutter_app_base/src/feature/feature.dart';
+import 'package:flutter_app_base/src/feature/feature_manager.dart';
 import 'package:get_it/get_it.dart';
 
 extension FeatureManagerExtensions on FeatureManager {
